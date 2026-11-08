@@ -4,8 +4,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class OderServiceApplication {
+public class OrderServiceApplication {
   public static void main(String[] args) {
-    SpringApplication.run(OderServiceApplication.class, args);
+    SpringApplication.run(OrderServiceApplication.class, args);
   }
 }

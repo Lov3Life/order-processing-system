@@ -28,6 +28,9 @@ public class OrderItem {
   @Column(name = "quantity", nullable = false)
   private Integer quantity;
 
+  public OrderItem() {
+  }
+
   public void setId(Long id) {
     this.id = id;
   }

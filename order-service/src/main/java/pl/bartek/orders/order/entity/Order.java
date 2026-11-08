@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.hibernate.annotations.ColumnDefault;
 import org.jspecify.annotations.NonNull;
+import pl.bartek.orders.order.enums.OrderStatus;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,18 +27,22 @@ public class Order {
 
   @Size(max = 20)
   @NotNull
+  @Enumerated(EnumType.STRING)
   @ColumnDefault("'PENDING'")
   @Column(name = "order_status", nullable = false, length = 20)
-  private String orderStatus;
+  private OrderStatus orderStatus;
 
   @NotNull
   @ColumnDefault("CURRENT_TIMESTAMP(6)")
   @Column(name = "order_date", nullable = false)
   private Instant orderDate;
+
   @NonNull
-  @OneToMany(mappedBy = "order")
+  @OneToMany(mappedBy = "order", cascade = CascadeType.PERSIST)
   private List<OrderItem> orderItems = new ArrayList<>();
 
+  public Order() {
+  }
 
   public Long getId() {
     return id;
@@ -55,11 +60,11 @@ public class Order {
     this.customer = customer;
   }
 
-  public String getOrderStatus() {
+  public OrderStatus getOrderStatus() {
     return orderStatus;
   }
 
-  public void setOrderStatus(String orderStatus) {
+  public void setOrderStatus(OrderStatus orderStatus) {
     this.orderStatus = orderStatus;
   }
 
@@ -78,5 +83,9 @@ public class Order {
 
   public void setOrderItems(@NonNull List<OrderItem> orderItems) {
     this.orderItems = orderItems;
+  }
+
+  public void addOrderItem(OrderItem orderItem) {
+    this.orderItems.add(orderItem);
   }
 }

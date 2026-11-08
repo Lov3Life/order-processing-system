@@ -1,3 +1,9 @@
+CREATE DATABASE IF NOT EXISTS `order-processing-system-orders_db`
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+
+USE `order-processing-system-orders_db`;
+
 create table customers
 (
     customer_id bigint auto_increment
