@@ -6,8 +6,7 @@ public record CustomerDTO(
         Long id,
         String firstName,
         String lastName,
-        String email
-) {
+        String email) {
   public static CustomerDTO fromCustomer(Customer customer) {
     return new CustomerDTO(
             customer.getId(),

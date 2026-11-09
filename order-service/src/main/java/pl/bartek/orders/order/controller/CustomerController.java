@@ -10,7 +10,7 @@ import pl.bartek.orders.order.service.CustomerService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/customer")
+@RequestMapping("/api/customers")
 public class CustomerController {
 
   private final CustomerService customerService;

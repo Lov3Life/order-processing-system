@@ -36,8 +36,6 @@ public class CustomerService {
       throw new CustomerNotUniqueEmailException("Customer with email " + request.email() + " already exists.");
     }
     Customer customer = CustomerCreateRequest.toCustomer(request);
-    customer.setFirstName(customer.getFirstName().trim());
-    customer.setLastName(customer.getLastName().trim());
     return CustomerDTO.fromCustomer(customerRepository.save(customer));
   }
 }

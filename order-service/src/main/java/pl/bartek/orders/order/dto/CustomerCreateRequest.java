@@ -17,8 +17,17 @@ public record CustomerCreateRequest(
         @Size(max = 255)
         @NotBlank
         @Email
-        String email
-) {
+        String email) {
+
+  public CustomerCreateRequest {
+    if (firstName != null)
+      firstName = firstName.strip();
+    if (lastName != null)
+      lastName = lastName.strip();
+    if (email != null)
+      email = email.strip();
+  }
+
   public static Customer toCustomer(CustomerCreateRequest request) {
     return new Customer(request.firstName, request.lastName, request.email);
   }

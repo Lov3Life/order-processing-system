@@ -2,7 +2,6 @@ package pl.bartek.orders.order.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import org.hibernate.annotations.ColumnDefault;
 import org.jspecify.annotations.NonNull;
 import pl.bartek.orders.order.enums.OrderStatus;
@@ -25,7 +24,6 @@ public class Order {
   @JoinColumn(name = "customer_id", nullable = false)
   private Customer customer;
 
-  @Size(max = 20)
   @NotNull
   @Enumerated(EnumType.STRING)
   @ColumnDefault("'PENDING'")
@@ -81,11 +79,8 @@ public class Order {
     return orderItems;
   }
 
-  public void setOrderItems(@NonNull List<OrderItem> orderItems) {
-    this.orderItems = orderItems;
-  }
-
   public void addOrderItem(OrderItem orderItem) {
+    orderItem.setOrder(this);
     this.orderItems.add(orderItem);
   }
 }
