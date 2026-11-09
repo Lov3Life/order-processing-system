@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
@@ -12,6 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import pl.bartek.orders.order.dto.CustomerCreateRequest;
 import pl.bartek.orders.order.dto.CustomerDTO;
 import pl.bartek.orders.order.exception.CustomerNotFoundException;
+import pl.bartek.orders.order.exception.CustomerNotUniqueEmailException;
 import pl.bartek.orders.order.service.CustomerService;
 import tools.jackson.databind.ObjectMapper;
 
@@ -150,7 +152,11 @@ public class CustomerControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isCreated());
-    verify(customerService).createCustomer(any(CustomerCreateRequest.class));
+    verify(customerService).createCustomer(argThat(requestCaptured ->
+            requestCaptured.firstName().equals("Matt") &&
+            requestCaptured.lastName().equals("Murdock") &&
+            requestCaptured.email().equals("matt.murdock@example.com")
+    ));
   }
 
   @ParameterizedTest
@@ -168,5 +174,54 @@ public class CustomerControllerTest {
                     .content(request))
             .andExpect(status().isBadRequest());
     verify(customerService, never()).createCustomer(any(CustomerCreateRequest.class));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {
+          """
+          {
+            "firstName": "Matt",
+            "lastName": "Murdock"
+          }
+          """,
+          """
+          {
+            "firstName": "Matt",
+            "email": "matt.murdock@example.com"
+          }
+          """,
+          """
+          {
+            "lastName": "Murdock",
+            "email": "matt.murdock@example.com"
+          }
+          """})
+  void shouldNotCreateCustomerWhenValueMissing(String request) throws Exception {
+    mockMvc.perform(post("/api/customers")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(request))
+            .andExpect(status().isBadRequest());
+    verify(customerService, never()).createCustomer(any(CustomerCreateRequest.class));
+  }
+
+  @Test
+  void shouldNotCreateUserWhenEmailIsNotUniqueAndThrowCustomerNotUniqueEmailException() throws Exception {
+    String request = """
+            {
+              "firstName": "Matt",
+              "lastName": "Murdock",
+              "email": "matt.murdock@example.com"
+            }
+            """;
+    when(customerService.createCustomer(any(CustomerCreateRequest.class)))
+            .thenThrow(new CustomerNotUniqueEmailException(
+                    "Customer with email matt.murdock@example.com already exists."
+            ));
+    mockMvc.perform(post("/api/customers")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(request))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.detail").value("Customer with email matt.murdock@example.com already exists."));
+    verify(customerService).createCustomer(any(CustomerCreateRequest.class));
   }
 }
