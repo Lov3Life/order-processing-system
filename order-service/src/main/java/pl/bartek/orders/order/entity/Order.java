@@ -36,7 +36,7 @@ public class Order {
   private Instant orderDate;
 
   @NonNull
-  @OneToMany(mappedBy = "order", cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
+  @OneToMany(mappedBy = "order", cascade = CascadeType.PERSIST)
   private List<OrderItem> orderItems = new ArrayList<>();
 
   public Order() {

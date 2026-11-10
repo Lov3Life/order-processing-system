@@ -11,6 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
 import pl.bartek.orders.order.dto.OrderDTO;
 import pl.bartek.orders.order.dto.OrderItemDTO;
+import pl.bartek.orders.order.dto.OrderSummaryDTO;
 import pl.bartek.orders.order.enums.OrderStatus;
 import pl.bartek.orders.order.exception.CustomerNotFoundException;
 import pl.bartek.orders.order.exception.OrderInvalidRequestDataException;
@@ -85,8 +86,7 @@ public class OrderControllerTest {
   @Test
   void shouldReturnAllOrders() throws Exception {
     Instant now = Instant.now();
-    OrderItemDTO item = new OrderItemDTO(1L, 1L, 2L, 6);
-    OrderDTO orderDTO = new OrderDTO(1L, 1L, OrderStatus.PENDING, now, List.of(item));
+    OrderSummaryDTO orderDTO = new OrderSummaryDTO(1L, 1L, OrderStatus.PENDING, now);
     when(orderService.getOrders(null))
             .thenReturn(List.of(orderDTO));
     mockMvc.perform(get("/api/orders"))
@@ -95,12 +95,7 @@ public class OrderControllerTest {
             .andExpect(jsonPath("$[0].id").value(1L))
             .andExpect(jsonPath("$[0].orderStatus").value(OrderStatus.PENDING.toString()))
             .andExpect(jsonPath("$[0].customerId").value(1L))
-            .andExpect(jsonPath("$[0].orderDate").value(now.toString()))
-            .andExpect(jsonPath("$[0].items", hasSize(1)))
-            .andExpect(jsonPath("$[0].items[0].id").value(1L))
-            .andExpect(jsonPath("$[0].items[0].orderId").value(1L))
-            .andExpect(jsonPath("$[0].items[0].productId").value(2L))
-            .andExpect(jsonPath("$[0].items[0].quantity").value(6));
+            .andExpect(jsonPath("$[0].orderDate").value(now.toString()));
     verify(orderService).getOrders(null);
   }
 
@@ -117,8 +112,7 @@ public class OrderControllerTest {
   @Test
   void shouldReturnAllOrdersByCustomerId() throws Exception {
     Instant now = Instant.now();
-    OrderItemDTO item = new OrderItemDTO(1L, 1L, 2L, 6);
-    OrderDTO orderDTO = new OrderDTO(1L, 1L, OrderStatus.PENDING, now, List.of(item));
+    OrderSummaryDTO orderDTO = new OrderSummaryDTO(1L, 1L, OrderStatus.PENDING, now);
     when(orderService.getOrders(1L))
             .thenReturn(List.of(orderDTO));
     mockMvc.perform(get("/api/orders")
@@ -128,12 +122,7 @@ public class OrderControllerTest {
             .andExpect(jsonPath("$[0].id").value(1L))
             .andExpect(jsonPath("$[0].orderStatus").value(OrderStatus.PENDING.toString()))
             .andExpect(jsonPath("$[0].customerId").value(1L))
-            .andExpect(jsonPath("$[0].orderDate").value(now.toString()))
-            .andExpect(jsonPath("$[0].items", hasSize(1)))
-            .andExpect(jsonPath("$[0].items[0].id").value(1L))
-            .andExpect(jsonPath("$[0].items[0].orderId").value(1L))
-            .andExpect(jsonPath("$[0].items[0].productId").value(2L))
-            .andExpect(jsonPath("$[0].items[0].quantity").value(6));
+            .andExpect(jsonPath("$[0].orderDate").value(now.toString()));
     verify(orderService).getOrders(1L);
   }
 

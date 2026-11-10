@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
 import pl.bartek.orders.order.dto.OrderDTO;
+import pl.bartek.orders.order.dto.OrderSummaryDTO;
 import pl.bartek.orders.order.service.OrderService;
 
 import java.util.List;
@@ -20,7 +21,7 @@ public class OrderController {
   }
 
   @GetMapping
-  public List<OrderDTO> getOrders(@RequestParam(required = false) Long customerId) {
+  public List<OrderSummaryDTO> getOrders(@RequestParam(required = false) Long customerId) {
     return orderService.getOrders(customerId);
   }
 

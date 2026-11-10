@@ -10,6 +10,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
 import pl.bartek.orders.order.dto.OrderDTO;
 import pl.bartek.orders.order.dto.OrderItemCreateRequest;
+import pl.bartek.orders.order.dto.OrderSummaryDTO;
 import pl.bartek.orders.order.entity.Customer;
 import pl.bartek.orders.order.entity.Order;
 import pl.bartek.orders.order.entity.OrderItem;
@@ -61,18 +62,14 @@ public class OrderServiceTest {
     ReflectionTestUtils.setField(order2, "id", 2L);
     when(orderRepository.findAll())
             .thenReturn(List.of(order1, order2));
-    List<OrderDTO> response = orderService.getOrders(null);
+    List<OrderSummaryDTO> response = orderService.getOrders(null);
     Assertions.assertNotNull(response);
     Assertions.assertFalse(response.isEmpty());
     Assertions.assertEquals(2, response.size());
     Assertions.assertEquals(1L, response.getFirst().id());
     Assertions.assertNotNull(response.getFirst().customerId());
-    Assertions.assertNotNull(response.getFirst().items());
-    Assertions.assertEquals(2, response.getFirst().items().size());
     Assertions.assertEquals(2L, response.getLast().id());
     Assertions.assertNotNull(response.getLast().customerId());
-    Assertions.assertNotNull(response.getLast().items());
-    Assertions.assertEquals(1, response.getLast().items().size());
     verify(orderRepository).findAll();
   }
 
@@ -80,7 +77,7 @@ public class OrderServiceTest {
   void shouldGetAllOrdersWhenEmpty() {
     when(orderRepository.findAll())
             .thenReturn(List.of());
-    List<OrderDTO> response = orderService.getOrders(null);
+    List<OrderSummaryDTO> response = orderService.getOrders(null);
     Assertions.assertNotNull(response);
     verify(orderRepository).findAll();
   }
@@ -104,18 +101,14 @@ public class OrderServiceTest {
     ReflectionTestUtils.setField(order2, "id", 2L);
     when(orderRepository.findByCustomerId(customer.getId()))
             .thenReturn(List.of(order1, order2));
-    List<OrderDTO> response = orderService.getOrders(customer.getId());
+    List<OrderSummaryDTO> response = orderService.getOrders(customer.getId());
     Assertions.assertNotNull(response);
     Assertions.assertFalse(response.isEmpty());
     Assertions.assertEquals(2, response.size());
     Assertions.assertEquals(1L, response.getFirst().id());
     Assertions.assertNotNull(response.getFirst().customerId());
-    Assertions.assertNotNull(response.getFirst().items());
-    Assertions.assertEquals(2, response.getFirst().items().size());
     Assertions.assertEquals(2L, response.getLast().id());
     Assertions.assertNotNull(response.getLast().customerId());
-    Assertions.assertNotNull(response.getLast().items());
-    Assertions.assertEquals(1, response.getLast().items().size());
     verify(orderRepository).findByCustomerId(customer.getId());
   }
 
@@ -123,7 +116,7 @@ public class OrderServiceTest {
   void shouldGetAllOrdersForCustomerWhenEmpty() {
     when(orderRepository.findByCustomerId(1L))
             .thenReturn(List.of());
-    List<OrderDTO> response = orderService.getOrders(1L);
+    List<OrderSummaryDTO> response = orderService.getOrders(1L);
     Assertions.assertNotNull(response);
     verify(orderRepository).findByCustomerId(1L);
   }

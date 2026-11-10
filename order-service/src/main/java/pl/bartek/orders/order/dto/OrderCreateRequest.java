@@ -13,6 +13,5 @@ public record OrderCreateRequest(
         Long customerId,
 
         @NotEmpty
-        @Valid
         List<@NotNull @Valid OrderItemCreateRequest> items) {
 }

@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
 import pl.bartek.orders.order.dto.OrderDTO;
 import pl.bartek.orders.order.dto.OrderItemCreateRequest;
+import pl.bartek.orders.order.dto.OrderSummaryDTO;
 import pl.bartek.orders.order.entity.Customer;
 import pl.bartek.orders.order.entity.Order;
 import pl.bartek.orders.order.entity.OrderItem;
@@ -32,14 +33,15 @@ public class OrderService {
     this.customerRepository = customerRepository;
   }
 
-  public List<OrderDTO> getOrders(Long customerId) {
+  @Transactional(readOnly = true)
+  public List<OrderSummaryDTO> getOrders(Long customerId) {
     List<Order> orderList;
     if(customerId == null)
       orderList = orderRepository.findAll();
     else
       orderList = orderRepository.findByCustomerId(customerId);
     return orderList.stream()
-            .map(OrderDTO::fromOrder)
+            .map(OrderSummaryDTO::fromOrder)
             .toList();
   }
 
@@ -68,10 +70,10 @@ public class OrderService {
     if(itemsIdCheck.size() != request.items().size())
       throw new OrderInvalidRequestDataException("Items should be unique");
     for(OrderItemCreateRequest item : request.items()) {
-      if(item.productId() == null)
-        throw new OrderInvalidRequestDataException("Product id cannot be null");
+      if(item.productId() == null || item.productId() <= 0)
+        throw new OrderInvalidRequestDataException("Product id cannot be less than 1.");
       if(item.quantity() == null || item.quantity() <= 0)
-        throw new OrderInvalidRequestDataException("Item quantity cannot be less than 0.");
+        throw new OrderInvalidRequestDataException("Item quantity cannot be less than 1.");
       OrderItem orderItem = new OrderItem();
       orderItem.setQuantity(item.quantity());
       orderItem.setProductId(item.productId());
