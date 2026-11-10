@@ -1,6 +1,7 @@
 package pl.bartek.orders.order.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import pl.bartek.orders.order.dto.CustomerCreateRequest;
 import pl.bartek.orders.order.dto.CustomerDTO;
 import pl.bartek.orders.order.entity.Customer;
@@ -31,6 +32,8 @@ public class CustomerService {
             .orElseThrow(() -> new CustomerNotFoundException(id));
   }
 
+
+  @Transactional
   public CustomerDTO createCustomer(CustomerCreateRequest request) {
     if(customerRepository.findByEmail(request.email()).isPresent()) {
       throw new CustomerNotUniqueEmailException("Customer with email " + request.email() + " already exists.");

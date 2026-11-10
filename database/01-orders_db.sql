@@ -25,7 +25,7 @@ create table orders
     constraint fk_orders_customer
         foreign key (customer_id) references customers (customer_id),
     constraint chk_orders_status
-        check (`order_status` in ('PENDING','COMPLETED','REJECTED'))
+        check (`order_status` in ('PENDING','ACCEPTED','REJECTED'))
 );
 
 create table order_items

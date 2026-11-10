@@ -49,10 +49,6 @@ public class Customer {
     return id;
   }
 
-  public void setId(Long id) {
-    this.id = id;
-  }
-
   public String getFirstName() {
     return firstName;
   }
@@ -84,5 +80,10 @@ public class Customer {
 
   public void setOrders(@NonNull List<Order> orders) {
     this.orders = orders;
+  }
+
+  public void addOrder(Order order) {
+    order.setCustomer(this);
+    this.orders.add(order);
   }
 }

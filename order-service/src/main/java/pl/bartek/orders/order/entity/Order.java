@@ -36,7 +36,7 @@ public class Order {
   private Instant orderDate;
 
   @NonNull
-  @OneToMany(mappedBy = "order", cascade = CascadeType.PERSIST)
+  @OneToMany(mappedBy = "order", cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
   private List<OrderItem> orderItems = new ArrayList<>();
 
   public Order() {
@@ -44,10 +44,6 @@ public class Order {
 
   public Long getId() {
     return id;
-  }
-
-  public void setId(Long id) {
-    this.id = id;
   }
 
   public Customer getCustomer() {

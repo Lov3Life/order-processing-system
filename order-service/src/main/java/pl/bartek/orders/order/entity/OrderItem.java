@@ -15,7 +15,7 @@ public class OrderItem {
   private Long id;
 
   @NotNull
-  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @ManyToOne(fetch = FetchType.LAZY, optional = false, targetEntity = Order.class)
   @OnDelete(action = OnDeleteAction.CASCADE)
   @JoinColumn(name = "order_id", nullable = false)
   private Order order;
@@ -29,10 +29,6 @@ public class OrderItem {
   private Integer quantity;
 
   public OrderItem() {
-  }
-
-  public void setId(Long id) {
-    this.id = id;
   }
 
   public Integer getQuantity() {
