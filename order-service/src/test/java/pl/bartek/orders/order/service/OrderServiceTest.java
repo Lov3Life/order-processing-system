@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
 import pl.bartek.orders.order.dto.OrderDTO;
@@ -36,11 +37,14 @@ public class OrderServiceTest {
   @Mock
   private CustomerRepository customerRepository;
 
+  @Mock
+  private ApplicationEventPublisher publisher;
+
   private OrderService orderService;
 
   @BeforeEach
   void setup() {
-    orderService = new OrderService(orderRepository, customerRepository);
+    orderService = new OrderService(orderRepository, customerRepository,  publisher);
   }
 
   @Test
@@ -79,6 +83,7 @@ public class OrderServiceTest {
             .thenReturn(List.of());
     List<OrderSummaryDTO> response = orderService.getOrders(null);
     Assertions.assertNotNull(response);
+    Assertions.assertTrue(response.isEmpty());
     verify(orderRepository).findAll();
   }
 
@@ -118,6 +123,7 @@ public class OrderServiceTest {
             .thenReturn(List.of());
     List<OrderSummaryDTO> response = orderService.getOrders(1L);
     Assertions.assertNotNull(response);
+    Assertions.assertTrue(response.isEmpty());
     verify(orderRepository).findByCustomerId(1L);
   }
 

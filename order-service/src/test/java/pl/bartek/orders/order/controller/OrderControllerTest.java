@@ -95,7 +95,8 @@ public class OrderControllerTest {
             .andExpect(jsonPath("$[0].id").value(1L))
             .andExpect(jsonPath("$[0].orderStatus").value(OrderStatus.PENDING.toString()))
             .andExpect(jsonPath("$[0].customerId").value(1L))
-            .andExpect(jsonPath("$[0].orderDate").value(now.toString()));
+            .andExpect(jsonPath("$[0].orderDate").value(now.toString()))
+            .andExpect(jsonPath("$[0].items").doesNotExist());
     verify(orderService).getOrders(null);
   }
 
@@ -122,7 +123,8 @@ public class OrderControllerTest {
             .andExpect(jsonPath("$[0].id").value(1L))
             .andExpect(jsonPath("$[0].orderStatus").value(OrderStatus.PENDING.toString()))
             .andExpect(jsonPath("$[0].customerId").value(1L))
-            .andExpect(jsonPath("$[0].orderDate").value(now.toString()));
+            .andExpect(jsonPath("$[0].orderDate").value(now.toString()))
+            .andExpect(jsonPath("$[0].items").doesNotExist());
     verify(orderService).getOrders(1L);
   }
 

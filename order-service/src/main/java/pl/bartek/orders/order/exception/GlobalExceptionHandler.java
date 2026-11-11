@@ -28,4 +28,9 @@ public class GlobalExceptionHandler {
   public ProblemDetail handleOrderInvalidDataException(OrderInvalidRequestDataException ex) {
     return ProblemDetail.forStatusAndDetail(BAD_REQUEST, ex.getMessage());
   }
+
+  @ExceptionHandler(OrderAlreadyProcessedException.class)
+  public ProblemDetail handleOrderAlreadyProcessedException(OrderAlreadyProcessedException ex) {
+    return ProblemDetail.forStatusAndDetail(CONFLICT, ex.getMessage());
+  }
 }

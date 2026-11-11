@@ -20,18 +20,19 @@ public class CustomerService {
     this.customerRepository = customerRepository;
   }
 
+  @Transactional(readOnly = true)
   public List<CustomerDTO> getAllCustomers() {
     return customerRepository.findAll().stream()
             .map(CustomerDTO::fromCustomer)
             .toList();
   }
 
+  @Transactional(readOnly = true)
   public CustomerDTO getCustomer(Long id) {
     return customerRepository.findById(id)
             .map(CustomerDTO::fromCustomer)
             .orElseThrow(() -> new CustomerNotFoundException(id));
   }
-
 
   @Transactional
   public CustomerDTO createCustomer(CustomerCreateRequest request) {

@@ -1,7 +1,10 @@
 package pl.bartek.orders.order.service;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pl.bartek.orders.event.OrderCreatedEvent;
+import pl.bartek.orders.event.OrderItemEvent;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
 import pl.bartek.orders.order.dto.OrderDTO;
 import pl.bartek.orders.order.dto.OrderItemCreateRequest;
@@ -11,6 +14,7 @@ import pl.bartek.orders.order.entity.Order;
 import pl.bartek.orders.order.entity.OrderItem;
 import pl.bartek.orders.order.enums.OrderStatus;
 import pl.bartek.orders.order.exception.CustomerNotFoundException;
+import pl.bartek.orders.order.exception.OrderAlreadyProcessedException;
 import pl.bartek.orders.order.exception.OrderInvalidRequestDataException;
 import pl.bartek.orders.order.exception.OrderNotFoundException;
 import pl.bartek.orders.order.repository.CustomerRepository;
@@ -26,11 +30,14 @@ public class OrderService {
 
   private final OrderRepository orderRepository;
   private final CustomerRepository customerRepository;
+  private final ApplicationEventPublisher publisher;
 
   public OrderService(OrderRepository orderRepository,
-                      CustomerRepository customerRepository) {
+                      CustomerRepository customerRepository,
+                      ApplicationEventPublisher publisher) {
     this.orderRepository = orderRepository;
     this.customerRepository = customerRepository;
+    this.publisher = publisher;
   }
 
   @Transactional(readOnly = true)
@@ -45,6 +52,7 @@ public class OrderService {
             .toList();
   }
 
+  @Transactional(readOnly = true)
   public OrderDTO getOrder(Long id) {
     return orderRepository.findById(id)
             .map(OrderDTO::fromOrder)
@@ -79,6 +87,28 @@ public class OrderService {
       orderItem.setProductId(item.productId());
       order.addOrderItem(orderItem);
     }
-    return OrderDTO.fromOrder(orderRepository.save(order));
+    OrderDTO savedOrder = OrderDTO.fromOrder(orderRepository.save(order));
+    processOrder(savedOrder);
+    return savedOrder;
+  }
+
+  @Transactional
+  public void changeOrderStatus(Long orderId, String status) {
+    status = status.toUpperCase();
+    Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new OrderNotFoundException(orderId));
+    if(order.getOrderStatus() != OrderStatus.PENDING)
+      throw new OrderAlreadyProcessedException(orderId);
+    order.setOrderStatus(OrderStatus.valueOf(status));
+    orderRepository.save(order);
+  }
+
+  private void processOrder(OrderDTO savedOrder) {
+    List<OrderItemEvent> items = savedOrder.items().stream()
+            .map(item ->
+                    new OrderItemEvent(item.productId(), item.quantity()))
+            .toList();
+    OrderCreatedEvent event = new OrderCreatedEvent(savedOrder.id(), items);
+    publisher.publishEvent(event);
   }
 }
