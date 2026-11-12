@@ -24,12 +24,16 @@ public class Product {
   @Column(name = "stock_quantity", nullable = false)
   private Integer stockQuantity;
 
-  public Long getId() {
-    return id;
+  public Product() {
   }
 
-  public void setId(Long id) {
-    this.id = id;
+  public Product(String name, Integer stockQuantity) {
+    this.name = name;
+    this.stockQuantity = stockQuantity;
+  }
+
+  public Long getId() {
+    return id;
   }
 
   public String getName() {
@@ -46,5 +50,13 @@ public class Product {
 
   public void setStockQuantity(Integer stockQuantity) {
     this.stockQuantity = stockQuantity;
+  }
+
+  public void addStockQuantity(Integer quantity) {
+    this.stockQuantity += quantity;
+  }
+
+  public void subStockQuantity(Integer quantity) {
+    this.stockQuantity -= quantity;
   }
 }

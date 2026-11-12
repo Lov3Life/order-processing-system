@@ -22,6 +22,7 @@ import pl.bartek.orders.order.repository.OrderRepository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -97,8 +98,12 @@ public class OrderService {
     status = status.toUpperCase();
     Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new OrderNotFoundException(orderId));
-    if(order.getOrderStatus() != OrderStatus.PENDING)
+    if(order.getOrderStatus() != OrderStatus.PENDING && !Objects.equals(order.getOrderStatus().toString(), status))
       throw new OrderAlreadyProcessedException(orderId);
+    if(OrderStatus.valueOf(status) == OrderStatus.PENDING)
+      throw new OrderInvalidRequestDataException("Cannot change order status to PENDING.");
+    if(order.getOrderStatus() == OrderStatus.valueOf(status))
+      return;
     order.setOrderStatus(OrderStatus.valueOf(status));
     orderRepository.save(order);
   }
