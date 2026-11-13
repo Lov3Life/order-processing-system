@@ -1,11 +1,9 @@
 package pl.bartek.orders.outbox.service;
 
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.bartek.orders.outbox.entity.OutboxEvent;
 import pl.bartek.orders.outbox.repository.OutboxEventRepository;
 
-@Service
 public class OutboxStatusService {
 
   private final OutboxEventRepository repository;

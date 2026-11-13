@@ -14,9 +14,7 @@ import pl.bartek.orders.processing.entity.Product;
 import pl.bartek.orders.processing.repository.ProcessedOrderRepository;
 import pl.bartek.orders.processing.repository.ProductRepository;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class OrderProcessingService {
@@ -52,6 +50,7 @@ public class OrderProcessingService {
   }
 
   public OrderProcessingResult processInventory(OrderCreatedEvent order) {
+    validateEvent(order);
     List<OrderItemEvent> items = new ArrayList<>(order.items());
     items.sort(Comparator.comparingLong(OrderItemEvent::productId));
     List<Product> products = new ArrayList<>();
@@ -72,5 +71,20 @@ public class OrderProcessingService {
       productRepository.save(product);
     }
     return new OrderProcessingResult(ProcessingStatus.ACCEPTED, null);
+  }
+
+  private void validateEvent(OrderCreatedEvent event) {
+    if (event == null || event.orderId() == null || event.orderId() <= 0
+        || event.items() == null || event.items().isEmpty()) {
+      throw new IllegalArgumentException("Invalid order event");
+    }
+    Set<Long> productIds = new HashSet<>();
+    for (OrderItemEvent item : event.items()) {
+      if (item == null || item.productId() == null || item.productId() <= 0
+          || item.quantity() == null || item.quantity() <= 0
+          || !productIds.add(item.productId())) {
+        throw new IllegalArgumentException("Invalid order item in order " + event.orderId());
+      }
+    }
   }
 }

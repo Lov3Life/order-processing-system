@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import pl.bartek.orders.outbox.entity.OutboxEvent;
 import pl.bartek.orders.outbox.enums.OutboxStatus;
 import pl.bartek.orders.outbox.repository.OutboxEventRepository;
@@ -14,7 +13,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-@Component
 public class OutboxPublisher {
 
   private static final Logger logger = LoggerFactory.getLogger(OutboxPublisher.class);

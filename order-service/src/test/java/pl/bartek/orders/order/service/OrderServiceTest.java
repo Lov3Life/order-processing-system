@@ -10,6 +10,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import pl.bartek.orders.event.OrderCreatedEvent;
 import pl.bartek.orders.event.ProcessingStatus;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
 import pl.bartek.orders.order.dto.OrderDTO;
@@ -184,6 +185,14 @@ public class OrderServiceTest {
     Assertions.assertEquals(1L, response.id());
     Assertions.assertEquals(1L, response.customerId());
     Assertions.assertEquals(2, response.items().size());
+    verify(outboxService).enqueue(eq(1L), eq("orders.created"), argThat(event ->
+                    event instanceof OrderCreatedEvent created
+                    && created.orderId().equals(1L)
+                    && created.items().size() == 2
+                    && created.items().getFirst().productId().equals(1L)
+                    && created.items().getLast().productId().equals(4L)
+            )
+    );
     verify(orderRepository).save(argThat(order ->
             order.getId().equals(1L) &&
             order.getOrderDate() != null &&
@@ -280,14 +289,14 @@ public class OrderServiceTest {
   @ValueSource(strings = {"ACCEPTED", "REJECTED"})
   void shouldChangeOrderStatusFromPendingToValidInput(String status) {
     ProcessingStatus newStatus = ProcessingStatus.valueOf(status);
-    Order order = new Order();
-    order.setOrderStatus(OrderStatus.PENDING);
-    when(orderRepository.findById(1L))
-            .thenReturn(Optional.of(order));
+    OrderStatus expectedStatus = OrderStatus.valueOf(status);
+    when(orderRepository.updateStatusIfPending(1L, expectedStatus, OrderStatus.PENDING))
+            .thenReturn(1);
     orderService.changeOrderStatus(1L, newStatus);
-    Assertions.assertNotEquals(OrderStatus.PENDING, order.getOrderStatus());
-    Assertions.assertEquals(OrderStatus.valueOf(status.toUpperCase()), order.getOrderStatus());
-    verify(orderRepository).save(order);
+    verify(orderRepository).updateStatusIfPending(
+            1L, expectedStatus, OrderStatus.PENDING);
+    verify(orderRepository, never()).findById(anyLong());
+    verify(orderRepository, never()).save(any(Order.class));
   }
 
   @Test

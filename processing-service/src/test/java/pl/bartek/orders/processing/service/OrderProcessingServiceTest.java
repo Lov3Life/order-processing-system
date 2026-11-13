@@ -9,8 +9,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import pl.bartek.orders.event.OrderCreatedEvent;
 import pl.bartek.orders.event.OrderItemEvent;
 import pl.bartek.orders.event.ProcessingStatus;
+import pl.bartek.orders.outbox.service.OutboxService;
 import pl.bartek.orders.processing.dto.OrderProcessingResult;
 import pl.bartek.orders.processing.entity.Product;
+import pl.bartek.orders.processing.repository.ProcessedOrderRepository;
 import pl.bartek.orders.processing.repository.ProductRepository;
 
 import java.util.List;
@@ -25,11 +27,17 @@ public class OrderProcessingServiceTest {
   @Mock
   private ProductRepository productRepository;
 
+  @Mock
+  private ProcessedOrderRepository processedOrderRepository;
+
+  @Mock
+  private OutboxService outboxService;
+
   private OrderProcessingService orderProcessingService;
 
   @BeforeEach
   void setUp() {
-    orderProcessingService = new OrderProcessingService(productRepository);
+    orderProcessingService = new OrderProcessingService(productRepository, processedOrderRepository, outboxService);
   }
 
   @Test
@@ -43,7 +51,7 @@ public class OrderProcessingServiceTest {
             .thenReturn(Optional.of(product1));
     when(productRepository.findByIdForUpdate(2L))
             .thenReturn(Optional.of(product2));
-    OrderProcessingResult result = orderProcessingService.processOrder(event);
+    OrderProcessingResult result = orderProcessingService.processInventory(event);
     Assertions.assertNotNull(result);
     Assertions.assertEquals(ProcessingStatus.ACCEPTED, result.status());
     Assertions.assertNull(result.reason());
@@ -64,7 +72,7 @@ public class OrderProcessingServiceTest {
             .thenReturn(Optional.of(product1));
     when(productRepository.findByIdForUpdate(2L))
             .thenReturn(Optional.of(product2));
-    OrderProcessingResult result = orderProcessingService.processOrder(event);
+    OrderProcessingResult result = orderProcessingService.processInventory(event);
     Assertions.assertNotNull(result);
     Assertions.assertEquals(ProcessingStatus.ACCEPTED, result.status());
     Assertions.assertNull(result.reason());
@@ -81,7 +89,7 @@ public class OrderProcessingServiceTest {
             new OrderItemEvent(1L, 2)));
     when(productRepository.findByIdForUpdate(1L))
             .thenReturn(Optional.empty());
-    OrderProcessingResult result = orderProcessingService.processOrder(event);
+    OrderProcessingResult result = orderProcessingService.processInventory(event);
     Assertions.assertNotNull(result);
     Assertions.assertEquals(ProcessingStatus.REJECTED, result.status());
     Assertions.assertNotNull(result.reason());
@@ -94,10 +102,22 @@ public class OrderProcessingServiceTest {
     OrderCreatedEvent event = new OrderCreatedEvent(1L, List.of(new OrderItemEvent(1L, 11)));
     when(productRepository.findByIdForUpdate(1L))
             .thenReturn(Optional.of(product));
-    OrderProcessingResult result = orderProcessingService.processOrder(event);
+    OrderProcessingResult result = orderProcessingService.processInventory(event);
     Assertions.assertNotNull(result);
     Assertions.assertEquals(ProcessingStatus.REJECTED, result.status());
     Assertions.assertNotNull(result.reason());
     verify(productRepository, never()).save(any(Product.class));
+  }
+
+  @Test
+  void shouldSkipAlreadyProcessedOrder() {
+    OrderCreatedEvent event = new OrderCreatedEvent(1L, List.of(new OrderItemEvent(2L, 3)));
+    when(processedOrderRepository.tryClaim(1L))
+            .thenReturn(0);
+    orderProcessingService.processOrder(event);
+    verify(processedOrderRepository).tryClaim(1L);
+    verifyNoInteractions(productRepository, outboxService);
+    verify(processedOrderRepository, never())
+            .markProcessed(anyLong(), anyString(), any());
   }
 }

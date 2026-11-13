@@ -1,13 +1,11 @@
 package pl.bartek.orders.outbox.service;
 
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import pl.bartek.orders.outbox.entity.OutboxEvent;
 import pl.bartek.orders.outbox.repository.OutboxEventRepository;
 import tools.jackson.databind.json.JsonMapper;
 
-@Service
 public class OutboxService {
 
   private final OutboxEventRepository repository;

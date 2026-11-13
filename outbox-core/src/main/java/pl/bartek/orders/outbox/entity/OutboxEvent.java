@@ -65,12 +65,8 @@ public class OutboxEvent {
 
   public void markFailedAttempt() {
     this.attempts++;
-    if(attempts >= 10) {
-      this.status = OutboxStatus.FAILED;
-    } else {
-      long delay = Math.min(300, attempts * 10L);
-      this.nextAttemptAt = Instant.now().plusSeconds(delay);
-    }
+    long delay = Math.min(300L, attempts * 10L);
+    this.nextAttemptAt = Instant.now().plusSeconds(delay);
   }
 
   public String getId() {
@@ -79,6 +75,10 @@ public class OutboxEvent {
 
   public Long getAggregateId() {
     return aggregateId;
+  }
+
+  public String getEventType() {
+    return eventType;
   }
 
   public String getTopic() {
@@ -93,6 +93,10 @@ public class OutboxEvent {
     return status;
   }
 
+  public int getAttempts() {
+    return attempts;
+  }
+
   public Instant getCreatedAt() {
     return createdAt;
   }
@@ -101,7 +105,7 @@ public class OutboxEvent {
     return nextAttemptAt;
   }
 
-  public int getAttempts() {
-    return attempts;
+  public Instant getPublishedAt() {
+    return publishedAt;
   }
 }

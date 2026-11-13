@@ -11,8 +11,8 @@ public interface ProcessedOrderRepository extends JpaRepository<ProcessedOrder, 
   @Modifying
   @Query(value = """
             INSERT IGNORE INTO processed_orders
-                (order_id, status)
-            VALUES (:orderId, 'PROCESSING')
+                (order_id, status, processed_at)
+            VALUES (:orderId, 'PROCESSING', UTC_TIMESTAMP(6))
             """, nativeQuery = true)
   int tryClaim(@Param("orderId") Long orderId);
 
