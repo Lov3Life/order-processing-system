@@ -50,3 +50,21 @@ create index idx_order_items_product_id
 create index idx_orders_customer_id
     on orders (customer_id);
 
+create table outbox_events
+(
+    id              char(36)                      not null
+        primary key,
+    aggregate_id    bigint                        not null,
+    event_type      varchar(100)                  not null,
+    topic           varchar(100)                  not null,
+    payload         json                          not null,
+    status          varchar(20) default 'PENDING' not null,
+    attempts        int         default 0         not null,
+    created_at      datetime(6)                   not null,
+    next_attempt_at datetime(6)                   not null,
+    published_at    datetime(6)                   null
+);
+
+create index idx_outbox_pending
+    on outbox_events (status, next_attempt_at, created_at);
+
