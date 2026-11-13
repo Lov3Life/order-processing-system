@@ -25,6 +25,7 @@
     <module>order-service</module>
     <module>processing-service</module>
     <module>notification-service</module>
+    <module>outbox-core</module>
   </modules>
 
   <build>

@@ -1,6 +1,5 @@
 package pl.bartek.orders.order.service;
 
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.bartek.orders.event.OrderCreatedEvent;
@@ -20,10 +19,10 @@ import pl.bartek.orders.order.exception.OrderInvalidRequestDataException;
 import pl.bartek.orders.order.exception.OrderNotFoundException;
 import pl.bartek.orders.order.repository.CustomerRepository;
 import pl.bartek.orders.order.repository.OrderRepository;
+import pl.bartek.orders.outbox.service.OutboxService;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -32,14 +31,14 @@ public class OrderService {
 
   private final OrderRepository orderRepository;
   private final CustomerRepository customerRepository;
-  private final ApplicationEventPublisher publisher;
+  private final OutboxService outboxService;
 
   public OrderService(OrderRepository orderRepository,
                       CustomerRepository customerRepository,
-                      ApplicationEventPublisher publisher) {
+                      OutboxService outboxService) {
     this.orderRepository = orderRepository;
     this.customerRepository = customerRepository;
-    this.publisher = publisher;
+    this.outboxService = outboxService;
   }
 
   @Transactional(readOnly = true)
@@ -97,14 +96,14 @@ public class OrderService {
   @Transactional
   public void changeOrderStatus(Long orderId, ProcessingStatus status) {
     OrderStatus newStatus = OrderStatus.valueOf(status.name());
+    int updated = orderRepository.updateStatusIfPending(orderId, newStatus, OrderStatus.PENDING);
+    if (updated == 1)
+      return;
     Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new OrderNotFoundException(orderId));
-    if(order.getOrderStatus() != OrderStatus.PENDING && !Objects.equals(order.getOrderStatus(), newStatus))
-      throw new OrderAlreadyProcessedException(orderId);
     if(order.getOrderStatus() == newStatus)
       return;
-    order.setOrderStatus(newStatus);
-    orderRepository.save(order);
+    throw new OrderAlreadyProcessedException(orderId);
   }
 
   private void processOrder(OrderDTO savedOrder) {
@@ -113,6 +112,6 @@ public class OrderService {
                     new OrderItemEvent(item.productId(), item.quantity()))
             .toList();
     OrderCreatedEvent event = new OrderCreatedEvent(savedOrder.id(), items);
-    publisher.publishEvent(event);
+    outboxService.enqueue(savedOrder.id(), "orders.created", event);
   }
 }

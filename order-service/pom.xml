@@ -51,6 +51,11 @@
       <artifactId>event-contracts</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>pl.bartek.orders</groupId>
+      <artifactId>outbox-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
   </dependencies>
 
   <build>

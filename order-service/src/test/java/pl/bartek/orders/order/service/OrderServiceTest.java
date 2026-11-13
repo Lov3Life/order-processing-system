@@ -9,10 +9,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
-import pl.bartek.orders.event.OrderCreatedEvent;
-import pl.bartek.orders.event.OrderItemEvent;
 import pl.bartek.orders.event.ProcessingStatus;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
 import pl.bartek.orders.order.dto.OrderDTO;
@@ -27,6 +24,7 @@ import pl.bartek.orders.order.exception.OrderInvalidRequestDataException;
 import pl.bartek.orders.order.exception.OrderNotFoundException;
 import pl.bartek.orders.order.repository.CustomerRepository;
 import pl.bartek.orders.order.repository.OrderRepository;
+import pl.bartek.orders.outbox.service.OutboxService;
 
 import java.time.Instant;
 import java.util.List;
@@ -45,13 +43,13 @@ public class OrderServiceTest {
   private CustomerRepository customerRepository;
 
   @Mock
-  private ApplicationEventPublisher publisher;
+  private OutboxService outboxService;
 
   private OrderService orderService;
 
   @BeforeEach
   void setup() {
-    orderService = new OrderService(orderRepository, customerRepository, publisher);
+    orderService = new OrderService(orderRepository, customerRepository, outboxService);
   }
 
   @Test
@@ -200,37 +198,11 @@ public class OrderServiceTest {
   }
 
   @Test
-  void shouldPublishOrderCreatedEventAfterCreatingOrder() {
-    OrderCreateRequest request = new OrderCreateRequest(1L, List.of(
-            new OrderItemCreateRequest(10L, 2),
-            new OrderItemCreateRequest(15L, 3)
-    ));
-    Customer customer = new Customer();
-    ReflectionTestUtils.setField(customer, "id", 1L);
-    when(customerRepository.findById(1L))
-            .thenReturn(Optional.of(customer));
-    when(orderRepository.save(any(Order.class)))
-            .thenAnswer(invocation -> {
-              Order order = invocation.getArgument(0);
-              ReflectionTestUtils.setField(order, "id", 1L);
-              return order;
-            });
-    orderService.createOrder(request);
-    verify(publisher).publishEvent(argThat((OrderCreatedEvent event) ->
-                    event.orderId().equals(1L) &&
-                    event.items().size() == 2 &&
-                    event.items().contains(new OrderItemEvent(10L, 2)) &&
-                    event.items().contains(new OrderItemEvent(15L, 3))
-    ));
-  }
-
-  @Test
   void shouldNotCreateOrderWhenCustomerIdIsNull() {
     OrderCreateRequest request = new OrderCreateRequest(null, List.of(new OrderItemCreateRequest(1L, 2)));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(customerRepository, never()).findById(anyLong());
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -242,7 +214,6 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -254,7 +225,6 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -268,7 +238,6 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -281,7 +250,6 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -294,7 +262,6 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -307,7 +274,6 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @ParameterizedTest
