@@ -9,10 +9,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 import pl.bartek.orders.event.OrderCreatedEvent;
-import pl.bartek.orders.event.OrderItemEvent;
 import pl.bartek.orders.event.ProcessingStatus;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
 import pl.bartek.orders.order.dto.OrderDTO;
@@ -27,6 +25,7 @@ import pl.bartek.orders.order.exception.OrderInvalidRequestDataException;
 import pl.bartek.orders.order.exception.OrderNotFoundException;
 import pl.bartek.orders.order.repository.CustomerRepository;
 import pl.bartek.orders.order.repository.OrderRepository;
+import pl.bartek.orders.outbox.service.OutboxService;
 
 import java.time.Instant;
 import java.util.List;
@@ -45,13 +44,13 @@ public class OrderServiceTest {
   private CustomerRepository customerRepository;
 
   @Mock
-  private ApplicationEventPublisher publisher;
+  private OutboxService outboxService;
 
   private OrderService orderService;
 
   @BeforeEach
   void setup() {
-    orderService = new OrderService(orderRepository, customerRepository, publisher);
+    orderService = new OrderService(orderRepository, customerRepository, outboxService);
   }
 
   @Test
@@ -186,6 +185,14 @@ public class OrderServiceTest {
     Assertions.assertEquals(1L, response.id());
     Assertions.assertEquals(1L, response.customerId());
     Assertions.assertEquals(2, response.items().size());
+    verify(outboxService).enqueue(eq(1L), eq("orders.created"), argThat(event ->
+                    event instanceof OrderCreatedEvent created
+                    && created.orderId().equals(1L)
+                    && created.items().size() == 2
+                    && created.items().getFirst().productId().equals(1L)
+                    && created.items().getLast().productId().equals(4L)
+            )
+    );
     verify(orderRepository).save(argThat(order ->
             order.getId().equals(1L) &&
             order.getOrderDate() != null &&
@@ -200,37 +207,11 @@ public class OrderServiceTest {
   }
 
   @Test
-  void shouldPublishOrderCreatedEventAfterCreatingOrder() {
-    OrderCreateRequest request = new OrderCreateRequest(1L, List.of(
-            new OrderItemCreateRequest(10L, 2),
-            new OrderItemCreateRequest(15L, 3)
-    ));
-    Customer customer = new Customer();
-    ReflectionTestUtils.setField(customer, "id", 1L);
-    when(customerRepository.findById(1L))
-            .thenReturn(Optional.of(customer));
-    when(orderRepository.save(any(Order.class)))
-            .thenAnswer(invocation -> {
-              Order order = invocation.getArgument(0);
-              ReflectionTestUtils.setField(order, "id", 1L);
-              return order;
-            });
-    orderService.createOrder(request);
-    verify(publisher).publishEvent(argThat((OrderCreatedEvent event) ->
-                    event.orderId().equals(1L) &&
-                    event.items().size() == 2 &&
-                    event.items().contains(new OrderItemEvent(10L, 2)) &&
-                    event.items().contains(new OrderItemEvent(15L, 3))
-    ));
-  }
-
-  @Test
   void shouldNotCreateOrderWhenCustomerIdIsNull() {
     OrderCreateRequest request = new OrderCreateRequest(null, List.of(new OrderItemCreateRequest(1L, 2)));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(customerRepository, never()).findById(anyLong());
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -242,7 +223,6 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -254,7 +234,6 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -268,7 +247,6 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -281,7 +259,6 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -294,7 +271,6 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @Test
@@ -307,21 +283,20 @@ public class OrderServiceTest {
             .thenReturn(Optional.of(customer));
     Assertions.assertThrows(OrderInvalidRequestDataException.class, () -> orderService.createOrder(request));
     verify(orderRepository, never()).save(any(Order.class));
-    verifyNoInteractions(publisher);
   }
 
   @ParameterizedTest
   @ValueSource(strings = {"ACCEPTED", "REJECTED"})
   void shouldChangeOrderStatusFromPendingToValidInput(String status) {
     ProcessingStatus newStatus = ProcessingStatus.valueOf(status);
-    Order order = new Order();
-    order.setOrderStatus(OrderStatus.PENDING);
-    when(orderRepository.findById(1L))
-            .thenReturn(Optional.of(order));
+    OrderStatus expectedStatus = OrderStatus.valueOf(status);
+    when(orderRepository.updateStatusIfPending(1L, expectedStatus, OrderStatus.PENDING))
+            .thenReturn(1);
     orderService.changeOrderStatus(1L, newStatus);
-    Assertions.assertNotEquals(OrderStatus.PENDING, order.getOrderStatus());
-    Assertions.assertEquals(OrderStatus.valueOf(status.toUpperCase()), order.getOrderStatus());
-    verify(orderRepository).save(order);
+    verify(orderRepository).updateStatusIfPending(
+            1L, expectedStatus, OrderStatus.PENDING);
+    verify(orderRepository, never()).findById(anyLong());
+    verify(orderRepository, never()).save(any(Order.class));
   }
 
   @Test

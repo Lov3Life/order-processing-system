@@ -209,15 +209,9 @@ public class ProductServiceTest {
   @NullSource
   @ValueSource(ints = {-2, -1, 0})
   void shouldThrowProductInvalidRequestDataExceptionWhenQuantityIsLessOrEqualsZeroWhenAdding(Integer quantity){
-    when(productRepository.findByIdForUpdate(1L))
-            .thenAnswer(invocation -> {
-              Product product = new Product("24-inch monitor", 3);
-              ReflectionTestUtils.setField(product, "id", 1L);
-              return Optional.of(product);
-            });
     Assertions.assertThrows(ProductInvalidRequestDataException.class,
             () -> productService.addStockQuantityToProduct(1L, quantity));
-    verify(productRepository, never()).save(any(Product.class));
+    verifyNoInteractions(productRepository);
   }
 
   @Test
@@ -249,15 +243,9 @@ public class ProductServiceTest {
   @NullSource
   @ValueSource(ints = {-2, -1, 0})
   void shouldThrowProductInvalidRequestDataExceptionWhenQuantityIsLessOrEqualsZeroWhenSubtracting(Integer quantity){
-    when(productRepository.findByIdForUpdate(1L))
-            .thenAnswer(invocation -> {
-              Product product = new Product("24-inch monitor", 3);
-              ReflectionTestUtils.setField(product, "id", 1L);
-              return Optional.of(product);
-            });
     Assertions.assertThrows(ProductInvalidRequestDataException.class,
             () -> productService.subtractStockQuantityToProduct(1L, quantity));
-    verify(productRepository, never()).save(any(Product.class));
+    verifyNoInteractions(productRepository);
   }
 
   @Test

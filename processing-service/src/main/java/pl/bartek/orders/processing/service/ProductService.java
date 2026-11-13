@@ -49,15 +49,15 @@ public class ProductService {
 
   @Transactional
   public ProductDTO addStockQuantityToProduct(Long id, Integer quantity) {
-    Product product = productRepository.findByIdForUpdate(id)
-            .orElseThrow(() -> new ProductNotFoundException(id));
     if(quantity == null || quantity <= 0)
       throw new ProductInvalidRequestDataException("Stock quantity to add must be greater than zero.");
+    Product product = productRepository.findByIdForUpdate(id)
+            .orElseThrow(() -> new ProductNotFoundException(id));
     int result;
     try {
       result = Math.addExact(product.getStockQuantity(), quantity);
     }catch(ArithmeticException e){
-      throw new ProductInvalidRequestDataException("Stock quantity to add must be greater than zero.");
+      throw new ProductInvalidRequestDataException("Stock quantity exceeds the maximum allowed value.");
     }
     product.setStockQuantity(result);
     return ProductDTO.fromProduct(productRepository.save(product));
@@ -65,10 +65,10 @@ public class ProductService {
 
   @Transactional
   public ProductDTO subtractStockQuantityToProduct(Long id, Integer quantity) {
-    Product product = productRepository.findByIdForUpdate(id)
-            .orElseThrow(() -> new ProductNotFoundException(id));
     if(quantity == null || quantity <= 0)
       throw new ProductInvalidRequestDataException("Stock quantity to subtract must be greater than zero.");
+    Product product = productRepository.findByIdForUpdate(id)
+            .orElseThrow(() -> new ProductNotFoundException(id));
     int newStockQuantity = product.getStockQuantity() - quantity;
     if(newStockQuantity < 0)
       throw new ProductInvalidRequestDataException("New stock quantity cannot be less than zero.");
