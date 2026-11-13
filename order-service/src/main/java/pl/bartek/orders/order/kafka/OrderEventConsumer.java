@@ -21,6 +21,6 @@ public class OrderEventConsumer {
   @KafkaListener(topics = "orders.processed")
   public void receiveOrderProcessed(OrderProcessedEvent event) {
     logger.info("Received processed order {}", event);
-    orderService.changeOrderStatus(event.orderId(), event.status().toString());
+    orderService.changeOrderStatus(event.orderId(), event.status());
   }
 }

@@ -16,6 +16,7 @@ import pl.bartek.orders.processing.dto.ProductDTO;
 import pl.bartek.orders.processing.entity.Product;
 import pl.bartek.orders.processing.exception.ProductInvalidRequestDataException;
 import pl.bartek.orders.processing.exception.ProductNotFoundException;
+import pl.bartek.orders.processing.exception.ProductNotUniqueNameException;
 import pl.bartek.orders.processing.repository.ProductRepository;
 
 import java.util.List;
@@ -122,6 +123,17 @@ public class ProductServiceTest {
   }
 
   @Test
+  void shouldNotAddProductWithSameName(){
+    ProductCreateRequest request = new ProductCreateRequest("24-inch monitor", 3);
+    when(productRepository.findByNameIgnoreCase("24-inch monitor"))
+            .thenReturn(Optional.of(new Product("24-inch monitor", 3)));
+    Assertions.assertThrows(ProductNotUniqueNameException.class,
+            () -> productService.addProduct(request));
+    verify(productRepository).findByNameIgnoreCase(request.name());
+    verify(productRepository, never()).save(any(Product.class));
+  }
+
+  @Test
   void shouldNotAddProductWhenStockQuantityIsNull() {
     ProductCreateRequest request = new ProductCreateRequest("24-inch monitor", null);
     Assertions.assertThrows(ProductInvalidRequestDataException.class,
@@ -140,19 +152,8 @@ public class ProductServiceTest {
   }
 
   @Test
-  void shouldProductInvalidRequestDataExceptionWhenProductWithExaclyTheSameNameExists() {
-    ProductCreateRequest request = new ProductCreateRequest("24-inch monitor", 3);
-    when(productRepository.findByNameIgnoreCase("24-inch monitor"))
-      .thenReturn(Optional.of(new Product("24-inch monitor", 3)));
-    Assertions.assertThrows(ProductInvalidRequestDataException.class,
-            () -> productService.addProduct(request));
-    verify(productRepository).findByNameIgnoreCase("24-inch monitor");
-    verify(productRepository, never()).save(any(Product.class));
-  }
-
-  @Test
   void shouldAddStockQuantityToProduct(){
-    when(productRepository.findById(1L))
+    when(productRepository.findByIdForUpdate(1L))
             .thenAnswer(invocation -> {
               Product product = new Product("24-inch monitor", 3);
               ReflectionTestUtils.setField(product, "id", 1L);
@@ -166,11 +167,49 @@ public class ProductServiceTest {
     Assertions.assertEquals(expected, response);
   }
 
+  @Test
+  void shouldAddStockQuantityEqualToIntegerMaxValue(){
+    when(productRepository.findByIdForUpdate(1L))
+            .thenAnswer(invocation -> {
+              Product product = new Product("24-inch monitor", Integer.MAX_VALUE - 1);
+              ReflectionTestUtils.setField(product, "id", 1L);
+              return Optional.of(product);
+            });
+    when(productRepository.save(any(Product.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+    ProductDTO response = productService.addStockQuantityToProduct(1L, 1);
+    ProductDTO expected = new ProductDTO(1L, "24-inch monitor", Integer.MAX_VALUE);
+    Assertions.assertNotNull(response);
+    Assertions.assertEquals(expected, response);
+  }
+
+  @Test
+  void shouldThrowExceptionWhenStockAdditionOverflows(){
+    when(productRepository.findByIdForUpdate(1L))
+            .thenAnswer(invocation -> {
+              Product product = new Product("24-inch monitor", Integer.MAX_VALUE);
+              ReflectionTestUtils.setField(product, "id", 1L);
+              return Optional.of(product);
+            });
+    Assertions.assertThrows(ProductInvalidRequestDataException.class,
+            () -> productService.addStockQuantityToProduct(1L, 1));
+    verify(productRepository, never()).save(any(Product.class));
+  }
+
+  @Test
+  void shouldThrowProductNotFoundExceptionWhenAddingStock(){
+    when(productRepository.findByIdForUpdate(1L))
+            .thenReturn(Optional.empty());
+    Assertions.assertThrows(ProductNotFoundException.class,
+            () -> productService.addStockQuantityToProduct(1L, 1));
+    verify(productRepository, never()).save(any(Product.class));
+  }
+
   @ParameterizedTest
   @NullSource
   @ValueSource(ints = {-2, -1, 0})
   void shouldThrowProductInvalidRequestDataExceptionWhenQuantityIsLessOrEqualsZeroWhenAdding(Integer quantity){
-    when(productRepository.findById(1L))
+    when(productRepository.findByIdForUpdate(1L))
             .thenAnswer(invocation -> {
               Product product = new Product("24-inch monitor", 3);
               ReflectionTestUtils.setField(product, "id", 1L);
@@ -183,7 +222,7 @@ public class ProductServiceTest {
 
   @Test
   void shouldSubtractStockQuantityToProduct(){
-    when(productRepository.findById(1L))
+    when(productRepository.findByIdForUpdate(1L))
             .thenAnswer(invocation -> {
               Product product = new Product("24-inch monitor", 3);
               ReflectionTestUtils.setField(product, "id", 1L);
@@ -197,11 +236,20 @@ public class ProductServiceTest {
     Assertions.assertEquals(expected, response);
   }
 
+  @Test
+  void shouldThrowProductNotFoundExceptionWhenSubtractingStock(){
+    when(productRepository.findByIdForUpdate(1L))
+            .thenReturn(Optional.empty());
+    Assertions.assertThrows(ProductNotFoundException.class,
+            () -> productService.subtractStockQuantityToProduct(1L, 1));
+    verify(productRepository, never()).save(any(Product.class));
+  }
+
   @ParameterizedTest
   @NullSource
   @ValueSource(ints = {-2, -1, 0})
   void shouldThrowProductInvalidRequestDataExceptionWhenQuantityIsLessOrEqualsZeroWhenSubtracting(Integer quantity){
-    when(productRepository.findById(1L))
+    when(productRepository.findByIdForUpdate(1L))
             .thenAnswer(invocation -> {
               Product product = new Product("24-inch monitor", 3);
               ReflectionTestUtils.setField(product, "id", 1L);
@@ -215,7 +263,7 @@ public class ProductServiceTest {
   @Test
   void shouldThrowProductInvalidRequestDataExceptionWhenNewStockQuantityValueWillBeLessThanZero(){
     int startQuantity = 3;
-    when(productRepository.findById(1L))
+    when(productRepository.findByIdForUpdate(1L))
             .thenAnswer(invocation -> {
               Product product = new Product("24-inch monitor", startQuantity);
               ReflectionTestUtils.setField(product, "id", 1L);

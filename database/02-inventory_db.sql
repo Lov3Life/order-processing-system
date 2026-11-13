@@ -10,6 +10,8 @@ create table products
         primary key,
     name           varchar(200)  not null,
     stock_quantity int default 0 not null,
+    constraint uq_products_name
+        unique (name),
     constraint chk_products_stock_quantity
         check (`stock_quantity` >= 0)
 );

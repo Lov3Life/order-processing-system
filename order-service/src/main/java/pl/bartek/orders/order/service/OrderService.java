@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.bartek.orders.event.OrderCreatedEvent;
 import pl.bartek.orders.event.OrderItemEvent;
+import pl.bartek.orders.event.ProcessingStatus;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
 import pl.bartek.orders.order.dto.OrderDTO;
 import pl.bartek.orders.order.dto.OrderItemCreateRequest;
@@ -94,17 +95,15 @@ public class OrderService {
   }
 
   @Transactional
-  public void changeOrderStatus(Long orderId, String status) {
-    status = status.toUpperCase();
+  public void changeOrderStatus(Long orderId, ProcessingStatus status) {
+    OrderStatus newStatus = OrderStatus.valueOf(status.name());
     Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new OrderNotFoundException(orderId));
-    if(order.getOrderStatus() != OrderStatus.PENDING && !Objects.equals(order.getOrderStatus().toString(), status))
+    if(order.getOrderStatus() != OrderStatus.PENDING && !Objects.equals(order.getOrderStatus(), newStatus))
       throw new OrderAlreadyProcessedException(orderId);
-    if(OrderStatus.valueOf(status) == OrderStatus.PENDING)
-      throw new OrderInvalidRequestDataException("Cannot change order status to PENDING.");
-    if(order.getOrderStatus() == OrderStatus.valueOf(status))
+    if(order.getOrderStatus() == newStatus)
       return;
-    order.setOrderStatus(OrderStatus.valueOf(status));
+    order.setOrderStatus(newStatus);
     orderRepository.save(order);
   }
 

@@ -13,6 +13,7 @@ import pl.bartek.orders.processing.dto.ProductCreateRequest;
 import pl.bartek.orders.processing.dto.ProductDTO;
 import pl.bartek.orders.processing.exception.ProductInvalidRequestDataException;
 import pl.bartek.orders.processing.exception.ProductNotFoundException;
+import pl.bartek.orders.processing.exception.ProductNotUniqueNameException;
 import pl.bartek.orders.processing.service.ProductService;
 import tools.jackson.databind.ObjectMapper;
 
@@ -55,7 +56,8 @@ public class ProductControllerTest {
             addProductRequestBuilder("\t", 1),
             addProductRequestBuilder("\r", 1),
             addProductRequestBuilder("24-inches monitor", null),
-            addProductRequestBuilder("24-inches monitor", -1));
+            addProductRequestBuilder("24-inches monitor", -1),
+            addProductRequestBuilder("a".repeat(201), 1));
   }
 
   @Test
@@ -105,6 +107,7 @@ public class ProductControllerTest {
             .thenThrow(new ProductNotFoundException(1L));
     mockMvc.perform(get("/api/products/{id}", 1))
             .andExpect(status().isNotFound());
+    verify(productService).getProduct(1L);
   }
 
   @Test
@@ -130,7 +133,7 @@ public class ProductControllerTest {
 
   @ParameterizedTest
   @MethodSource("invalidAddProductRequest")
-  void shouldReturn404WhenRequestIsInvalidWhenAddProduct(String request) throws Exception {
+  void shouldReturn400WhenRequestIsInvalidWhenAddProduct(String request) throws Exception {
     mockMvc.perform(post("/api/products")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(request))
@@ -139,7 +142,7 @@ public class ProductControllerTest {
   }
 
   @Test
-  void shouldReturn404WhenThrowProductInvalidRequestDataException() throws Exception {
+  void shouldReturn400WhenThrowProductInvalidRequestDataException() throws Exception {
     String request = """
             {
               "name": "24-inches monitor",
@@ -152,6 +155,24 @@ public class ProductControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(request))
             .andExpect(status().isBadRequest());
+    verify(productService).addProduct(any(ProductCreateRequest.class));
+  }
+
+  @Test
+  void shouldReturn409WhenProductNameAlreadyExists() throws Exception {
+    String request = """
+            {
+              "name": "24-inches monitor",
+              "stockQuantity": "3"
+            }
+            """;
+    when(productService.addProduct(any(ProductCreateRequest.class)))
+            .thenThrow(new ProductNotUniqueNameException("24-inches monitor"));
+    mockMvc.perform(post("/api/products")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(request))
+            .andExpect(status().isConflict());
+    verify(productService).addProduct(any(ProductCreateRequest.class));
   }
 
   @Test
@@ -169,6 +190,25 @@ public class ProductControllerTest {
     verify(productService).addStockQuantityToProduct(1L, 3);
   }
 
+  @Test
+  void shouldReturn400WhenStockQuantityIsMissingWhenAdding() throws Exception {
+    mockMvc.perform(patch("/api/products/addStockQuantity/{id}", 1)
+                    .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest());
+    verify(productService, never()).addStockQuantityToProduct(1L, 3);
+  }
+
+  @Test
+  void shouldReturn404WhenAddingStockToNonexistentProduct() throws Exception {
+    when(productService.addStockQuantityToProduct(1L, 3))
+            .thenThrow(new ProductNotFoundException(1L));
+    mockMvc.perform(patch("/api/products/addStockQuantity/{id}", 1)
+                    .param("quantity", String.valueOf(3))
+                    .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNotFound());
+    verify(productService).addStockQuantityToProduct(1L, 3);
+  }
+
   @ParameterizedTest
   @ValueSource(ints = {-1, 0})
   void shouldReturn400WhenAddStockQuantityToProductInvalidRequest(int quantity) throws Exception {
@@ -176,6 +216,7 @@ public class ProductControllerTest {
                     .param("quantity", String.valueOf(quantity))
                     .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isBadRequest());
+    verify(productService, never()).addStockQuantityToProduct(1L, quantity);
   }
 
   @Test
@@ -186,6 +227,7 @@ public class ProductControllerTest {
                     .param("quantity", String.valueOf(2))
                     .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isBadRequest());
+    verify(productService).addStockQuantityToProduct(1L, 2);
   }
 
   @Test
@@ -203,6 +245,14 @@ public class ProductControllerTest {
     verify(productService).subtractStockQuantityToProduct(1L, 3);
   }
 
+  @Test
+  void shouldReturn400WhenStockQuantityIsMissingWhenSubtracting() throws Exception {
+    mockMvc.perform(patch("/api/products/subtractStockQuantity/{id}", 1)
+                    .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest());
+    verify(productService, never()).subtractStockQuantityToProduct(1L, 3);
+  }
+
   @ParameterizedTest
   @ValueSource(ints = {-1, 0})
   void shouldReturn400WhenSubtractStockQuantityToProductInvalidRequest(int quantity) throws Exception {
@@ -210,6 +260,7 @@ public class ProductControllerTest {
                     .param("quantity", String.valueOf(quantity))
                     .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isBadRequest());
+    verify(productService, never()).subtractStockQuantityToProduct(1L, quantity);
   }
 
   @Test
@@ -220,5 +271,6 @@ public class ProductControllerTest {
                     .param("quantity", String.valueOf(2))
                     .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isBadRequest());
+    verify(productService).subtractStockQuantityToProduct(1L, 2);
   }
 }

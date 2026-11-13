@@ -7,6 +7,7 @@ import pl.bartek.orders.processing.dto.ProductDTO;
 import pl.bartek.orders.processing.entity.Product;
 import pl.bartek.orders.processing.exception.ProductInvalidRequestDataException;
 import pl.bartek.orders.processing.exception.ProductNotFoundException;
+import pl.bartek.orders.processing.exception.ProductNotUniqueNameException;
 import pl.bartek.orders.processing.repository.ProductRepository;
 
 import java.util.List;
@@ -39,7 +40,7 @@ public class ProductService {
     if(request.name() == null || request.name().isBlank())
       throw new ProductInvalidRequestDataException("Name cannot be empty.");
     if(productRepository.findByNameIgnoreCase(request.name()).isPresent())
-      throw new ProductInvalidRequestDataException("Product with the same name already exists.");
+      throw new ProductNotUniqueNameException(request.name());
     Product product = new Product();
     product.setName(request.name());
     product.setStockQuantity(request.stockQuantity());
@@ -48,17 +49,23 @@ public class ProductService {
 
   @Transactional
   public ProductDTO addStockQuantityToProduct(Long id, Integer quantity) {
-    Product product = productRepository.findById(id)
+    Product product = productRepository.findByIdForUpdate(id)
             .orElseThrow(() -> new ProductNotFoundException(id));
     if(quantity == null || quantity <= 0)
       throw new ProductInvalidRequestDataException("Stock quantity to add must be greater than zero.");
-    product.addStockQuantity(quantity);
+    int result;
+    try {
+      result = Math.addExact(product.getStockQuantity(), quantity);
+    }catch(ArithmeticException e){
+      throw new ProductInvalidRequestDataException("Stock quantity to add must be greater than zero.");
+    }
+    product.setStockQuantity(result);
     return ProductDTO.fromProduct(productRepository.save(product));
   }
 
   @Transactional
   public ProductDTO subtractStockQuantityToProduct(Long id, Integer quantity) {
-    Product product = productRepository.findById(id)
+    Product product = productRepository.findByIdForUpdate(id)
             .orElseThrow(() -> new ProductNotFoundException(id));
     if(quantity == null || quantity <= 0)
       throw new ProductInvalidRequestDataException("Stock quantity to subtract must be greater than zero.");

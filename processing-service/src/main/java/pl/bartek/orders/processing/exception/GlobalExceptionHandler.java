@@ -4,8 +4,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
-import static org.springframework.http.HttpStatus.NOT_FOUND;
+import static org.springframework.http.HttpStatus.*;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -18,5 +17,10 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(ProductInvalidRequestDataException.class)
   public ProblemDetail handleProductInvalidRequestDataException(ProductInvalidRequestDataException ex){
     return ProblemDetail.forStatusAndDetail(BAD_REQUEST,  ex.getMessage());
+  }
+
+  @ExceptionHandler(ProductNotUniqueNameException.class)
+  public ProblemDetail handleProductNotUniqueNameException(ProductNotUniqueNameException ex){
+    return ProblemDetail.forStatusAndDetail(CONFLICT,  ex.getMessage());
   }
 }
