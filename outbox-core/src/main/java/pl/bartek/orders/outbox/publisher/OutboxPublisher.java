@@ -31,7 +31,6 @@ public class OutboxPublisher {
 
   @Scheduled(fixedDelayString = "${app.outbox.poll-delay-ms:2000}")
   public void publishPendingEvents() {
-
     List<OutboxEvent> events = repository.findTop50ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
             OutboxStatus.PENDING, Instant.now());
     for (OutboxEvent event : events) {
