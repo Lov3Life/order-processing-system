@@ -15,8 +15,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class OutboxStatusServiceTest {
@@ -46,15 +45,21 @@ public class OutboxStatusServiceTest {
   @Test
   void shouldIncrementAttemptsAfterFailure() {
     OutboxEvent event = new OutboxEvent(1L, "type", "orders.created", "payload");
-    Instant createdNextAttempt = event.getNextAttemptAt();
     when(outboxEventRepository.findById(any(String.class)))
             .thenReturn(Optional.of(event));
-    outboxStatusService.markFailedAttempt(event.getId());
-    Assertions.assertEquals(OutboxStatus.PENDING, event.getStatus());
-    Assertions.assertNull(event.getPublishedAt());
-    Assertions.assertTrue(event.getNextAttemptAt().isAfter(createdNextAttempt));
-    Assertions.assertEquals(1, event.getAttempts());
-    verify(outboxEventRepository).findById(event.getId());
+    for(int i = 1; i <= 40; i++) {
+      Instant before = Instant.now();
+      outboxStatusService.markFailedAttempt(event.getId());
+      Instant after = Instant.now();
+      long expectedDelay = Math.min(i * 10L, 300L);
+      Instant nextAttempt = event.getNextAttemptAt();
+      Assertions.assertFalse(nextAttempt.isBefore(before.plusSeconds(expectedDelay)));
+      Assertions.assertFalse(nextAttempt.isAfter(after.plusSeconds(expectedDelay)));
+      Assertions.assertEquals(i, event.getAttempts());
+      Assertions.assertEquals(OutboxStatus.PENDING, event.getStatus());
+      Assertions.assertNull(event.getPublishedAt());
+    }
+    verify(outboxEventRepository, times(40)).findById(event.getId());
   }
 
   @Test
