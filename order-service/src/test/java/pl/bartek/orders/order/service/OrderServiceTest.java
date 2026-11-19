@@ -292,7 +292,7 @@ public class OrderServiceTest {
     OrderStatus expectedStatus = OrderStatus.valueOf(status);
     when(orderRepository.updateStatusIfPending(1L, expectedStatus, OrderStatus.PENDING))
             .thenReturn(1);
-    orderService.changeOrderStatus(1L, newStatus);
+    orderService.changeOrderStatus(1L, newStatus, null);
     verify(orderRepository).updateStatusIfPending(
             1L, expectedStatus, OrderStatus.PENDING);
     verify(orderRepository, never()).findById(anyLong());
@@ -304,7 +304,7 @@ public class OrderServiceTest {
     when(orderRepository.findById(1L))
             .thenReturn(Optional.empty());
     Assertions.assertThrows(OrderNotFoundException.class,
-            () -> orderService.changeOrderStatus(1L, ProcessingStatus.ACCEPTED));
+            () -> orderService.changeOrderStatus(1L, ProcessingStatus.ACCEPTED, null));
     verify(orderRepository).findById(1L);
     verify(orderRepository, never()).save(any(Order.class));
   }
@@ -317,7 +317,7 @@ public class OrderServiceTest {
     order.setOrderStatus(OrderStatus.valueOf(status.toUpperCase()));
     when(orderRepository.findById(1L))
             .thenReturn(Optional.of(order));
-    orderService.changeOrderStatus(1L, newStatus);
+    orderService.changeOrderStatus(1L, newStatus, null);
     Assertions.assertEquals(OrderStatus.valueOf(status.toUpperCase()), order.getOrderStatus());
     verify(orderRepository, never()).save(any(Order.class));
   }
@@ -333,7 +333,7 @@ public class OrderServiceTest {
     when(orderRepository.findById(1L))
             .thenReturn(Optional.of(order));
     Assertions.assertThrows(OrderAlreadyProcessedException.class,
-            () -> orderService.changeOrderStatus(1L, newStatus));
+            () -> orderService.changeOrderStatus(1L, newStatus, null));
     verify(orderRepository, never()).save(any(Order.class));
   }
 }

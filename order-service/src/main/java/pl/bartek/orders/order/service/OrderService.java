@@ -3,6 +3,7 @@ package pl.bartek.orders.order.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.bartek.orders.event.OrderCreatedEvent;
+import pl.bartek.orders.event.OrderFinalizedEvent;
 import pl.bartek.orders.event.OrderItemEvent;
 import pl.bartek.orders.event.ProcessingStatus;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
@@ -94,11 +95,14 @@ public class OrderService {
   }
 
   @Transactional
-  public void changeOrderStatus(Long orderId, ProcessingStatus status) {
+  public void changeOrderStatus(Long orderId, ProcessingStatus status, String reason) {
     OrderStatus newStatus = OrderStatus.valueOf(status.name());
     int updated = orderRepository.updateStatusIfPending(orderId, newStatus, OrderStatus.PENDING);
-    if (updated == 1)
+    if (updated == 1){
+      OrderFinalizedEvent event = new OrderFinalizedEvent(orderId, status, reason, Instant.now());
+      outboxService.enqueue(orderId, "orders.finalized", event);
       return;
+    }
     Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new OrderNotFoundException(orderId));
     if(order.getOrderStatus() == newStatus)
