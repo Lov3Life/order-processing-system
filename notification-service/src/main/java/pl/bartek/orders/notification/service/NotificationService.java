@@ -5,11 +5,12 @@ import org.springframework.transaction.annotation.Transactional;
 import pl.bartek.orders.event.ProcessingStatus;
 import pl.bartek.orders.notification.dto.NotificationDTO;
 import pl.bartek.orders.notification.entity.Notification;
-import pl.bartek.orders.notification.exception.NotificationInvalidData;
+import pl.bartek.orders.notification.exception.NotificationInvalidDataException;
 import pl.bartek.orders.notification.exception.NotificationNotFoundException;
 import pl.bartek.orders.notification.repository.NotificationRepository;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -43,18 +44,18 @@ public class NotificationService {
   @Transactional
   public void createNotification(Long orderId, ProcessingStatus status, String reason) {
     if(orderId == null || orderId <= 0)
-      throw new NotificationInvalidData("Order is must be positive.");
+      throw new NotificationInvalidDataException("Order is must be positive.");
     if (status == null)
-      throw new NotificationInvalidData("Status cannot be null.");
+      throw new NotificationInvalidDataException("Status cannot be null.");
     String message = generateMessage(orderId, status, reason);
     if (message.length() > 500)
-      throw new NotificationInvalidData("Message cannot exceed 500 characters.");
+      throw new NotificationInvalidDataException("Message cannot exceed 500 characters.");
     Optional<Notification> existing = notificationRepository.findByOrderId(orderId);
     if(existing.isPresent()) {
       Notification notification = existing.get();
-      if (notification.getStatus() == status && notification.getMessage().equals(message))
+      if (notification.getStatus() == status && Objects.equals(notification.getMessage(), message))
         return;
-      throw new NotificationInvalidData("Conflicting notification for order: " + orderId);
+      throw new NotificationInvalidDataException("Conflicting notification for order: " + orderId);
     }
     Notification notification = new Notification(orderId, status, message);
     notificationRepository.save(notification);
