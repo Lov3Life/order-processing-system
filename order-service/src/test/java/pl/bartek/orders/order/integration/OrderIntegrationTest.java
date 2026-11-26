@@ -1,5 +1,10 @@
 package pl.bartek.orders.order.integration;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,11 +24,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
-import pl.bartek.orders.event.OrderCreatedEvent;
-import pl.bartek.orders.event.OrderFinalizedEvent;
-import pl.bartek.orders.event.OrderItemEvent;
-import pl.bartek.orders.event.ProcessingStatus;
+import pl.bartek.orders.event.*;
 import pl.bartek.orders.order.dto.OrderCreateRequest;
+import pl.bartek.orders.order.dto.OrderDTO;
 import pl.bartek.orders.order.dto.OrderItemCreateRequest;
 import pl.bartek.orders.order.entity.Customer;
 import pl.bartek.orders.order.entity.Order;
@@ -42,12 +45,17 @@ import pl.bartek.orders.outbox.service.OutboxService;
 import pl.bartek.orders.outbox.service.OutboxStatusService;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doThrow;
@@ -132,6 +140,39 @@ public class OrderIntegrationTest {
     item.setQuantity(2);
     order.addOrderItem(item);
     return orderRepository.saveAndFlush(order);
+  }
+
+  private void publishOutboxEvents() {
+    OutboxPublisher publisher = new OutboxPublisher(outboxEventRepository, outboxStatusService, kafkaTemplate);
+    publisher.publishPendingEvents();
+  }
+
+  private KafkaConsumer<String, String> createKafkaConsumer(String topic) {
+    Properties properties = new Properties();
+    properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+    properties.put(ConsumerConfig.GROUP_ID_CONFIG, "integration-test-" + UUID.randomUUID());
+    properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+    properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties);
+    consumer.subscribe(List.of(topic));
+    return consumer;
+  }
+
+  private ConsumerRecord<String, String> awaitKafkaRecord(KafkaConsumer<String, String> consumer,
+                                                          String topic,
+                                                          Long orderId) {
+    long deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos();
+    while (System.nanoTime() < deadline) {
+      ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
+      for (ConsumerRecord<String, String> record : records) {
+        if (record.topic().equals(topic) && orderId.toString().equals(record.key())) {
+          return record;
+        }
+      }
+    }
+    throw new AssertionError("Kafka record not received for order: " + orderId);
   }
 
   @Test
@@ -341,5 +382,85 @@ public class OrderIntegrationTest {
             .andExpect(jsonPath("$", hasSize(1)))
             .andExpect(jsonPath("$[0].id").value(mattOrder.getId()))
             .andExpect(jsonPath("$[0].customerId").value(matt.getId()));
+  }
+
+  @Test
+  void shouldPublishOrderCreatedEvent() {
+    Customer customer = saveCustomer("matt@example.com");
+    OrderCreateRequest request = new OrderCreateRequest(customer.getId(), List.of(
+            new OrderItemCreateRequest(10L, 2),
+            new OrderItemCreateRequest(15L, 3)));
+    try (KafkaConsumer<String, String> consumer = createKafkaConsumer("orders.created")) {
+      OrderDTO order = orderService.createOrder(request);
+      Assertions.assertEquals(1, outboxEventRepository.count());
+      publishOutboxEvents();
+      ConsumerRecord<String, String> record = awaitKafkaRecord(consumer, "orders.created", order.id());
+      OrderCreatedEvent event = jsonMapper.readValue(record.value(), OrderCreatedEvent.class);
+      Assertions.assertEquals(order.id(), event.orderId());
+      Assertions.assertEquals(2, event.items().size());
+      Assertions.assertTrue(event.items().contains(new OrderItemEvent(10L, 2)));
+      Assertions.assertTrue(event.items().contains(new OrderItemEvent(15L, 3)));
+      OutboxEvent outbox = outboxEventRepository.findAll().getFirst();
+      Assertions.assertEquals(OutboxStatus.SENT, outbox.getStatus());
+      Assertions.assertNotNull(outbox.getPublishedAt());
+      Assertions.assertEquals(0, outbox.getAttempts());
+    }
+  }
+
+  @Test
+  void shouldConsumeOrderProcessedEvent() throws Exception {
+    Customer customer = saveCustomer("matt@example.com");
+    Order order = savePendingOrder(customer);
+    Long orderId = order.getId();
+    OrderProcessedEvent event = new OrderProcessedEvent(orderId, ProcessingStatus.ACCEPTED, null);
+    kafkaTemplate.send("orders.processed", orderId.toString(), jsonMapper.writeValueAsString(event))
+            .get(10, TimeUnit.SECONDS);
+    await().atMost(Duration.ofSeconds(20))
+            .untilAsserted(() -> {
+              Order updated = orderRepository.findById(orderId)
+                      .orElseThrow();
+              Assertions.assertEquals(OrderStatus.ACCEPTED, updated.getOrderStatus());
+              List<OutboxEvent> events = outboxEventRepository.findAll();
+              Assertions.assertEquals(1, events.size());
+              Assertions.assertEquals("orders.finalized", events.getFirst().getTopic());
+            });
+  }
+
+  @Test
+  void shouldPublishOrderFinalizedEvent() throws Exception {
+    Customer customer = saveCustomer("matt@example.com");
+    Order order = savePendingOrder(customer);
+    Long orderId = order.getId();
+    try (KafkaConsumer<String, String> consumer = createKafkaConsumer("orders.finalized")) {
+      orderService.changeOrderStatus(orderId, ProcessingStatus.REJECTED, "Insufficient stock");
+      Assertions.assertEquals(1, outboxEventRepository.count());
+      publishOutboxEvents();
+      ConsumerRecord<String, String> record = awaitKafkaRecord(consumer, "orders.finalized", orderId);
+      OrderFinalizedEvent event = jsonMapper.readValue(record.value(), OrderFinalizedEvent.class);
+      Assertions.assertEquals(orderId, event.orderId());
+      Assertions.assertEquals(ProcessingStatus.REJECTED, event.status());
+      Assertions.assertEquals("Insufficient stock", event.reason());
+      Assertions.assertNotNull(event.finalizedAt());
+      OutboxEvent outbox = outboxEventRepository.findAll().getFirst();
+      Assertions.assertEquals("orders.finalized", outbox.getTopic());
+      Assertions.assertEquals(OutboxStatus.SENT, outbox.getStatus());
+      Assertions.assertNotNull(outbox.getPublishedAt());
+    }
+  }
+
+  @Test
+  void shouldRollbackStatusChangeWhenOutboxFails() {
+    Customer customer = saveCustomer("matt@example.com");
+    Order order = savePendingOrder(customer);
+    OutboxService spy = AopTestUtils.getUltimateTargetObject(outboxService);
+    doThrow(new IllegalStateException("Outbox failure"))
+            .when(spy)
+            .enqueue(anyLong(), eq("orders.finalized"), any());
+    Assertions.assertThrows(IllegalStateException.class,
+            () -> orderService.changeOrderStatus(order.getId(), ProcessingStatus.ACCEPTED, null));
+    Order updated = orderRepository.findById(order.getId())
+            .orElseThrow();
+    Assertions.assertEquals(OrderStatus.PENDING, updated.getOrderStatus());
+    Assertions.assertEquals(0, outboxEventRepository.count());
   }
 }
