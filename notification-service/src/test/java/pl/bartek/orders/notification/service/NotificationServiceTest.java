@@ -175,7 +175,7 @@ public class NotificationServiceTest {
   void shouldThrowNotificationInvalidDataExceptionWhenMessageIsTooLong() {
     String reason = "a".repeat(501);
     Assertions.assertThrows(NotificationInvalidDataException.class,
-            () -> notificationService.createNotification(1L, null, reason));
+            () -> notificationService.createNotification(1L, ProcessingStatus.REJECTED, reason));
     verifyNoInteractions(notificationRepository);
   }
 

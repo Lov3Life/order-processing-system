@@ -192,12 +192,36 @@ public class ProcessingIntegrationTest {
             new OrderItemEvent(productId2, quantity2)));
   }
 
+  private void assertPendingOutboxEvent(ProcessingStatus expectedStatus) {
+    List<OutboxEvent> outboxEvents = outboxEventRepository.findAll();
+    Assertions.assertEquals(1, outboxEvents.size());
+    OutboxEvent outboxEvent = outboxEvents.getFirst();
+    Assertions.assertNotNull(outboxEvent.getId());
+    Assertions.assertEquals(1L, outboxEvent.getAggregateId());
+    Assertions.assertEquals("OrderProcessedEvent", outboxEvent.getEventType());
+    Assertions.assertEquals("orders.processed", outboxEvent.getTopic());
+    Assertions.assertEquals(OutboxStatus.PENDING, outboxEvent.getStatus());
+    Assertions.assertEquals(0, outboxEvent.getAttempts());
+    Assertions.assertNotNull(outboxEvent.getCreatedAt());
+    Assertions.assertNotNull(outboxEvent.getNextAttemptAt());
+    Assertions.assertNull(outboxEvent.getPublishedAt());
+    OrderProcessedEvent event = jsonMapper.readValue(outboxEvent.getPayload(), OrderProcessedEvent.class);
+    Assertions.assertEquals(1L, event.orderId());
+    if(ProcessingStatus.ACCEPTED == expectedStatus){
+      Assertions.assertEquals(ProcessingStatus.ACCEPTED, event.status());
+      Assertions.assertNull(event.reason());
+    } else if(ProcessingStatus.REJECTED == expectedStatus) {
+      Assertions.assertEquals(ProcessingStatus.REJECTED, event.status());
+      Assertions.assertNotNull(event.reason());
+    }
+  }
+
   @Test
   void shouldCreateProduct() throws Exception {
     String request = """
             {
               "name": "24-inches monitor",
-              "stockQuantity": "3"
+              "stockQuantity": 3
             }
             """;
     mockMvc.perform(post("/api/products")
@@ -234,6 +258,9 @@ public class ProcessingIntegrationTest {
             .andExpect(jsonPath("$.id").value(productId))
             .andExpect(jsonPath("$.name").value("24-inches monitor"))
             .andExpect(jsonPath("$.stockQuantity").value(7));
+    Product updated = productRepository.findById(productId)
+            .orElseThrow();
+    Assertions.assertEquals(7, updated.getStockQuantity());
   }
 
   @Test
@@ -245,6 +272,9 @@ public class ProcessingIntegrationTest {
             .andExpect(jsonPath("$.id").value(productId))
             .andExpect(jsonPath("$.name").value("24-inches monitor"))
             .andExpect(jsonPath("$.stockQuantity").value(3));
+    Product updated = productRepository.findById(productId)
+            .orElseThrow();
+    Assertions.assertEquals(3, updated.getStockQuantity());
   }
 
   @Test
@@ -262,22 +292,7 @@ public class ProcessingIntegrationTest {
     Assertions.assertEquals(1L, processedOrder.getId());
     Assertions.assertNull(processedOrder.getReason());
     Assertions.assertNotNull(processedOrder.getProcessedAt());
-    List<OutboxEvent> outboxEvents = outboxEventRepository.findAll();
-    Assertions.assertEquals(1, outboxEvents.size());
-    OutboxEvent outboxEvent = outboxEvents.getFirst();
-    Assertions.assertNotNull(outboxEvent.getId());
-    Assertions.assertEquals(1L, outboxEvent.getAggregateId());
-    Assertions.assertEquals("OrderProcessedEvent", outboxEvent.getEventType());
-    Assertions.assertEquals("orders.processed", outboxEvent.getTopic());
-    Assertions.assertEquals(OutboxStatus.PENDING, outboxEvent.getStatus());
-    Assertions.assertEquals(0, outboxEvent.getAttempts());
-    Assertions.assertNotNull(outboxEvent.getCreatedAt());
-    Assertions.assertNotNull(outboxEvent.getNextAttemptAt());
-    Assertions.assertNull(outboxEvent.getPublishedAt());
-    OrderProcessedEvent event = jsonMapper.readValue(outboxEvent.getPayload(), OrderProcessedEvent.class);
-    Assertions.assertEquals(1L, event.orderId());
-    Assertions.assertEquals(ProcessingStatus.ACCEPTED, event.status());
-    Assertions.assertNull(event.reason());
+    assertPendingOutboxEvent(ProcessingStatus.ACCEPTED);
   }
 
   @Test
@@ -295,22 +310,7 @@ public class ProcessingIntegrationTest {
     Assertions.assertEquals(1L, processedOrder.getId());
     Assertions.assertNotNull(processedOrder.getReason());
     Assertions.assertNotNull(processedOrder.getProcessedAt());
-    List<OutboxEvent> outboxEvents = outboxEventRepository.findAll();
-    Assertions.assertEquals(1, outboxEvents.size());
-    OutboxEvent outboxEvent = outboxEvents.getFirst();
-    Assertions.assertNotNull(outboxEvent.getId());
-    Assertions.assertEquals(1L, outboxEvent.getAggregateId());
-    Assertions.assertEquals("OrderProcessedEvent", outboxEvent.getEventType());
-    Assertions.assertEquals("orders.processed", outboxEvent.getTopic());
-    Assertions.assertEquals(OutboxStatus.PENDING, outboxEvent.getStatus());
-    Assertions.assertEquals(0, outboxEvent.getAttempts());
-    Assertions.assertNotNull(outboxEvent.getCreatedAt());
-    Assertions.assertNotNull(outboxEvent.getNextAttemptAt());
-    Assertions.assertNull(outboxEvent.getPublishedAt());
-    OrderProcessedEvent event = jsonMapper.readValue(outboxEvent.getPayload(), OrderProcessedEvent.class);
-    Assertions.assertEquals(1L, event.orderId());
-    Assertions.assertEquals(ProcessingStatus.REJECTED, event.status());
-    Assertions.assertNotNull(event.reason());
+    assertPendingOutboxEvent(ProcessingStatus.REJECTED);
   }
 
   @Test
@@ -325,22 +325,7 @@ public class ProcessingIntegrationTest {
     Assertions.assertEquals(1L, processedOrder.getId());
     Assertions.assertNotNull(processedOrder.getReason());
     Assertions.assertNotNull(processedOrder.getProcessedAt());
-    List<OutboxEvent> outboxEvents = outboxEventRepository.findAll();
-    Assertions.assertEquals(1, outboxEvents.size());
-    OutboxEvent outboxEvent = outboxEvents.getFirst();
-    Assertions.assertNotNull(outboxEvent.getId());
-    Assertions.assertEquals(1L, outboxEvent.getAggregateId());
-    Assertions.assertEquals("OrderProcessedEvent", outboxEvent.getEventType());
-    Assertions.assertEquals("orders.processed", outboxEvent.getTopic());
-    Assertions.assertEquals(OutboxStatus.PENDING, outboxEvent.getStatus());
-    Assertions.assertEquals(0, outboxEvent.getAttempts());
-    Assertions.assertNotNull(outboxEvent.getCreatedAt());
-    Assertions.assertNotNull(outboxEvent.getNextAttemptAt());
-    Assertions.assertNull(outboxEvent.getPublishedAt());
-    OrderProcessedEvent event = jsonMapper.readValue(outboxEvent.getPayload(), OrderProcessedEvent.class);
-    Assertions.assertEquals(1L, event.orderId());
-    Assertions.assertEquals(ProcessingStatus.REJECTED, event.status());
-    Assertions.assertNotNull(event.reason());
+    assertPendingOutboxEvent(ProcessingStatus.REJECTED);
   }
 
   @Test
@@ -362,22 +347,7 @@ public class ProcessingIntegrationTest {
     Assertions.assertEquals(1L, processedOrder.getId());
     Assertions.assertNotNull(processedOrder.getReason());
     Assertions.assertNotNull(processedOrder.getProcessedAt());
-    List<OutboxEvent> outboxEvents = outboxEventRepository.findAll();
-    Assertions.assertEquals(1, outboxEvents.size());
-    OutboxEvent outboxEvent = outboxEvents.getFirst();
-    Assertions.assertNotNull(outboxEvent.getId());
-    Assertions.assertEquals(1L, outboxEvent.getAggregateId());
-    Assertions.assertEquals("OrderProcessedEvent", outboxEvent.getEventType());
-    Assertions.assertEquals("orders.processed", outboxEvent.getTopic());
-    Assertions.assertEquals(OutboxStatus.PENDING, outboxEvent.getStatus());
-    Assertions.assertEquals(0, outboxEvent.getAttempts());
-    Assertions.assertNotNull(outboxEvent.getCreatedAt());
-    Assertions.assertNotNull(outboxEvent.getNextAttemptAt());
-    Assertions.assertNull(outboxEvent.getPublishedAt());
-    OrderProcessedEvent event = jsonMapper.readValue(outboxEvent.getPayload(), OrderProcessedEvent.class);
-    Assertions.assertEquals(1L, event.orderId());
-    Assertions.assertEquals(ProcessingStatus.REJECTED, event.status());
-    Assertions.assertNotNull(event.reason());
+    assertPendingOutboxEvent(ProcessingStatus.REJECTED);
   }
 
   @Test
@@ -397,22 +367,7 @@ public class ProcessingIntegrationTest {
     Assertions.assertEquals(1L, processedOrder.getId());
     Assertions.assertNull(processedOrder.getReason());
     Assertions.assertNotNull(processedOrder.getProcessedAt());
-    List<OutboxEvent> outboxEvents = outboxEventRepository.findAll();
-    Assertions.assertEquals(1, outboxEvents.size());
-    OutboxEvent outboxEvent = outboxEvents.getFirst();
-    Assertions.assertNotNull(outboxEvent.getId());
-    Assertions.assertEquals(1L, outboxEvent.getAggregateId());
-    Assertions.assertEquals("OrderProcessedEvent", outboxEvent.getEventType());
-    Assertions.assertEquals("orders.processed", outboxEvent.getTopic());
-    Assertions.assertEquals(OutboxStatus.PENDING, outboxEvent.getStatus());
-    Assertions.assertEquals(0, outboxEvent.getAttempts());
-    Assertions.assertNotNull(outboxEvent.getCreatedAt());
-    Assertions.assertNotNull(outboxEvent.getNextAttemptAt());
-    Assertions.assertNull(outboxEvent.getPublishedAt());
-    OrderProcessedEvent event = jsonMapper.readValue(outboxEvent.getPayload(), OrderProcessedEvent.class);
-    Assertions.assertEquals(1L, event.orderId());
-    Assertions.assertEquals(ProcessingStatus.ACCEPTED, event.status());
-    Assertions.assertNull(event.reason());
+    assertPendingOutboxEvent(ProcessingStatus.ACCEPTED);
   }
 
   @Test
