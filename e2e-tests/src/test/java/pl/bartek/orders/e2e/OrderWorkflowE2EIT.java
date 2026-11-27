@@ -303,13 +303,9 @@ public class OrderWorkflowE2EIT {
     ProductDTO monitor = createProduct("E2E Monitor", 10);
     ProductDTO keyboard = createProduct("E2E Keyboard", 15);
     CustomerDTO customer = createCustomer();
-    OrderDTO order = createOrder(
-            customer.id(),
-            List.of(
+    OrderDTO order = createOrder(customer.id(), List.of(
                     new OrderItemCreateRequest(monitor.id(), 3),
-                    new OrderItemCreateRequest(keyboard.id(), 5)
-            )
-    );
+                    new OrderItemCreateRequest(keyboard.id(), 5)));
     awaitFinalizedWorkflow(order.id(), ProcessingStatus.ACCEPTED, "Order " + order.id() + " has been accepted.");
     ProductDTO updatedMonitor = getJson(processingContext, "/api/products/" + monitor.id(), ProductDTO.class);
     ProductDTO updatedKeyboard = getJson(processingContext, "/api/products/" + keyboard.id(), ProductDTO.class);
