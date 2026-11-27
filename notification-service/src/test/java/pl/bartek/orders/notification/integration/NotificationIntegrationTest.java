@@ -111,9 +111,10 @@ public class NotificationIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$", hasSize(2)))
             .andExpect(jsonPath("$[0].id").isNumber())
-            .andExpect(jsonPath("$[0].message", not(containsString("Reason"))))
             .andExpect(jsonPath("$[1].id").isNumber())
-            .andExpect(jsonPath("$[1].message", containsString("Reason")));
+            .andExpect(jsonPath("$[*].message", containsInAnyOrder(
+                    "Order 1 has been accepted.",
+                    "Order 2 has been rejected. Reason: reason")));
   }
 
   @Test
@@ -125,7 +126,21 @@ public class NotificationIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$", hasSize(1)))
             .andExpect(jsonPath("$[0].id").isNumber())
+            .andExpect(jsonPath("$[0].orderId").value(1))
+            .andExpect(jsonPath("$[0].status").value("ACCEPTED"))
             .andExpect(jsonPath("$[0].message", not(containsString("Reason"))));
+  }
+
+  @Test
+  void shouldReturnNotificationById() throws Exception {
+    notificationService.createNotification(1L, ProcessingStatus.ACCEPTED, null);
+    Long notificationId = notificationRepository.findAll().getFirst().getId();
+    mockMvc.perform(get("/api/notifications/{id}", notificationId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(notificationId))
+            .andExpect(jsonPath("$.orderId").value(1))
+            .andExpect(jsonPath("$.status").value("ACCEPTED"))
+            .andExpect(jsonPath("$.message").value("Order 1 has been accepted."));
   }
 
   @Test

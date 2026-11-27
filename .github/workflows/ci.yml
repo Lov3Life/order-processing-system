@@ -9,6 +9,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -20,5 +22,13 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Build and run tests
-        run: mvn -B clean verify
+      - name: Build and run unit, integration and E2E tests
+        run: mvn -B -ntp clean verify
+
+      - name: Upload E2E test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-reports
+          path: e2e-tests/target/failsafe-reports/
+          if-no-files-found: warn

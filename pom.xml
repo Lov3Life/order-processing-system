@@ -26,6 +26,7 @@
     <module>processing-service</module>
     <module>notification-service</module>
     <module>outbox-core</module>
+    <module>e2e-tests</module>
   </modules>
 
   <build>
